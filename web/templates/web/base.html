@@ -1,72 +1,67 @@
 <!DOCTYPE html>
+{% load static %}
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
-    <title>Mi Sitio Django</title>
-
-    <style>
-
-        body{
-            margin:0;
-            font-family:Arial;
-        }
-
-        header{
-            background:#1e88e5;
-            padding:20px;
-        }
-
-        header a{
-            color:white;
-            text-decoration:none;
-            margin-right:20px;
-            font-weight:bold;
-        }
-
-        main{
-            min-height:500px;
-            padding:30px;
-        }
-
-        footer{
-            background:#333;
-            color:white;
-            text-align:center;
-            padding:20px;
-        }
-
-    </style>
-
+    <title>Golarín</title>
+    <link rel="icon" href="{% static 'web/imagenes/golarin.png' %}" type="image/x-icon">
+    <link rel="stylesheet" href="{% static 'web/css/base.css' %}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
+
 <body>
+<div id="app-container">
+    <aside class="sidebar">
+        <div class="sidebar-brand">
+            <div class="icono-brand">
+                <img src="{% static 'web/imagenes/golarin.png' %}" alt="Logo">
+            </div>
+            <div class="nombre-brand">
+                <h5 class="tomorrow-medium">Golarín</h5>
+            </div>
+        </div>
 
-<header>
+        <nav class="sidebar-links">
+            <a href="{% url 'inicio' %}">
+                <i class="fa-solid fa-house"></i> Inicio
+            </a>
+            <a href="{% url 'nuevoParlay' %}">
+                <i class="fa-solid fa-dice"></i> Nuevo Parlay
+            </a>
+            <a href="{% url 'datasets' %}">
+                <i class="fa-solid fa-database"></i> Datasets
+            </a>
+        </nav>
 
-    <a href="{% url 'inicio' %}">
-        Inicio
-    </a>
+        <div class="sidebar-footer">
+            <div class="perfil-usuario">
+                <div class="avatar">
+                    <span class="avatar-text">U</span>
+                </div>
+                <div class="usuario-info">
+                    <a href="{% url 'logOut' %}" class="username">Usuario</a>
+                    <span class="user-role">Perfil</span>
+                </div>
+            </div>
 
-    <a href="{% url 'acerca' %}">
-        Acerca de
-    </a>
+            <a href="{% url 'logOut' %}" class="logout-link">
+                <i class="fa-solid fa-right-from-bracket"></i> Cerrar sesión
+            </a>
+        </div>
+    </aside>
 
-</header>
-
-<main>
-
-    {% block contenido %}
-    {% endblock %}
-
-</main>
+    <main class="main-content">
+        {% block contenido %}
+        {% endblock %}
+    </main>
+</div>
 
 <footer>
-
-    <h3>Footer de prueba</h3>
-
-    <p>
-        Proyecto Django realizado en PyCharm
-    </p>
-
+    <div id="linea"></div>
+    <div class="footer-text">
+        <p>© 2026 Golarín. Todos los derechos reservados.</p>
+    </div>
 </footer>
 
 </body>
