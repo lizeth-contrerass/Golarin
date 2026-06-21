@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Mi Sitio Django</title>
+
+    <style>
+
+        body{
+            margin:0;
+            font-family:Arial;
+        }
+
+        header{
+            background:#1e88e5;
+            padding:20px;
+        }
+
+        header a{
+            color:white;
+            text-decoration:none;
+            margin-right:20px;
+            font-weight:bold;
+        }
+
+        main{
+            min-height:500px;
+            padding:30px;
+        }
+
+        footer{
+            background:#333;
+            color:white;
+            text-align:center;
+            padding:20px;
+        }
+
+    </style>
+
+</head>
+<body>
+
+<header>
+
+    <a href="{% url 'inicio' %}">
+        Inicio
+    </a>
+
+    <a href="{% url 'acerca' %}">
+        Acerca de
+    </a>
+
+</header>
+
+<main>
+
+    {% block contenido %}
+    {% endblock %}
+
+</main>
+
+<footer>
+
+    <h3>Footer de prueba</h3>
+
+    <p>
+        Proyecto Django realizado en PyCharm
+    </p>
+
+</footer>
+
+</body>
+</html>
