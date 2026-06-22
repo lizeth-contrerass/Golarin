@@ -1,28 +1,18 @@
 {% extends 'web/index.html' %}
 {% block contenido %}
-     {% if messages %}
-        {% for message in messages %}
-            <div style="padding: 12px; margin-bottom: 20px; border-radius: 6px; font-size: 14px;
-                {% if message.tags == 'success' %} background-color: #d1e7dd; color: #0f5132; border: 1px solid #badbcc;
-                {% elif message.tags == 'error' %} background-color: #f8d7da; color: #842029; border: 1px solid #f5c2c7;
-                {% else %} background-color: #cff4fc; color: #055160; border: 1px solid #b6effb; {% endif %}">
-                {{ message }}
-            </div>
-        {% endfor %}
-    {% endif %}
+
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
 <div style="max-width: 420px; margin: 40px auto; background: white; padding: 35px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.05);">
     <h2 style="font-family: 'Tomorrow', sans-serif; font-size: 22px; margin-bottom: 20px; color: #0d1527; text-align: center;">Iniciar Sesión</h2>
 
-    <form method="POST" action="{% url 'login' %}" style="display: flex; flex-direction: column; gap: 15px;">
+    <form id="loginForm" method="POST" action="{% url 'login' %}" style="display: flex; flex-direction: column; gap: 15px;">
         {% csrf_token %}
 
         {% for field in form %}
             <div>
                 <label style="display: block; font-size: 13px; color: #64748b; margin-bottom: 5px; font-weight: 500;">{{ field.label }}</label>
                 {{ field }}
-                {% if field.errors %}
-                    <span style="color: #ef4444; font-size: 11px;">{{ field.errors.0 }}</span>
-                {% endif %}
             </div>
         {% endfor %}
 
@@ -36,31 +26,34 @@
 </style>
 
 <script>
-document.getElementById('loginForm').addEventListener('submit', async function(e) {
-    e.preventDefault();
-    const username = document.getElementById('username').value;
-    const password = document.getElementById('password').value;
-
-    const response = await fetch('/api/usuarios/login/', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ username, password })
+// 1. Mostrar alerta de carga al enviar el formulario
+document.getElementById('loginForm').addEventListener('submit', function() {
+    // No usamos e.preventDefault() para que Django sí reciba los datos y cree la sesión
+    Swal.fire({
+        title: 'Verificando credenciales...',
+        allowOutsideClick: false,
+        didOpen: () => {
+            Swal.showLoading();
+        }
     });
-
-    if (response.ok) {
-        const data = await response.json();
-        // Guardas el JWT en el almacenamiento del navegador
-        localStorage.setItem('access_token', data.access);
-        localStorage.setItem('refresh_token', data.refresh);
-        alert("Login exitoso");
-        // Redirigir a la página principal del dashboard
-        window.location.href = '/';
-    } else {
-        alert("Credenciales incorrectas");
-    }
 });
 </script>
-</div>
+
+{% if messages %}
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            {% for message in messages %}
+                {% if message.tags == 'error' %}
+                    Swal.fire({
+                        title: 'Error de Autenticación',
+                        text: '{{ message }}',
+                        icon: 'error',
+                        confirmButtonColor: '#2563eb'
+                    });
+                {% endif %}
+            {% endfor %}
+        });
+    </script>
+{% endif %}
+
 {% endblock %}
