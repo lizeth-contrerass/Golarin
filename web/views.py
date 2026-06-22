@@ -177,3 +177,21 @@ def logout_vista(request):
 def inicio(request):
     es_admin = request.user.is_staff or request.user.is_superuser
     return render(request, 'web/inicio.html', {'es_admin': es_admin})
+
+@login_required(login_url='login')
+def eliminar_dataset(request, id_dataset):
+    if request.method == 'POST':
+        try:
+            dataset = Dataset.objects.get(id=id_dataset, usuario=request.user)
+            if dataset.archivo and os.path.exists(dataset.archivo.path):
+                os.remove(dataset.archivo.path)
+            dataset.delete()
+
+            messages.success(request, "Dataset eliminado correctamente.")
+        except Dataset.DoesNotExist:
+            messages.error(request, "El dataset no existe o no tienes permiso para eliminarlo.")
+        except Exception as e:
+            messages.error(request, f"Error al eliminar el dataset: {str(e)}")
+
+    algo_actual = request.GET.get('algo', 'TODOS')
+    return redirect(f'/datasets/?tipo=propio&algo={algo_actual}')

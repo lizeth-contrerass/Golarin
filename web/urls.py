@@ -10,4 +10,5 @@ urlpatterns = [
     path('datasets/', views.datasets, name='datasets'),
     path('nuevoParlay/', views.nuevoParlay, name='nuevoParlay'),
     path('historial/', views.historial, name='historial'),
+    path('eliminar_dataset/<int:id_dataset>/', views.eliminar_dataset, name='eliminar_dataset'),
 ]

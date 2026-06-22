@@ -99,9 +99,19 @@
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 15px;">
             <div>
                 <h3 style="color: #0d1527; margin: 0 0 5px 0;">Mis Datasets</h3>
-                <span style="color: #64748b; font-size: 13px;">Mostrando: <strong>{{ nombre_dataset }}</strong></span>
-            </div>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span style="color: #64748b; font-size: 13px;">Mostrando: <strong>{{ nombre_dataset }}</strong></span>
 
+                    {% if id_seleccionado and request.GET.tipo == 'propio' %}
+                    <form action="{% url 'eliminar_dataset' id_seleccionado %}?algo={{ request.GET.algo|default:'TODOS' }}" method="POST" onsubmit="return confirm('¿Estás seguro de que deseas eliminar este dataset? Esta acción eliminará el archivo permanentemente.');" style="margin: 0;">
+                        {% csrf_token %}
+                        <button type="submit" style="background-color: #ef4444; color: white; border: none; padding: 4px 10px; border-radius: 6px; font-size: 12px; cursor: pointer; font-weight: 600; transition: background 0.2s;">
+                            <i class="fa-solid fa-trash"></i> Eliminar
+                        </button>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
             <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
                 <div>
                     <label style="font-size: 12px; font-weight: 600; color: #475569; display: block; margin-bottom: 3px;">Filtro Algoritmo:</label>
