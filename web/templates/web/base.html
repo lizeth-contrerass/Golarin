@@ -43,7 +43,7 @@
                     <span class="avatar-text">{{ user.username.0|upper }}</span>
                 </div>
                 <div class="usuario-info">
-                    <a href="{% url 'nuevoParlay' %}" class="username">{{ user.nombre }} {{ user.apellido }}</a>
+                    <a href="{% url 'nuevoParlay' %}" class="username">{{ user.first_name }} {{ user.last_name }}</a>
                     <span class="user-role">@{{ user.username }}</span>
                 </div>
             </div>
