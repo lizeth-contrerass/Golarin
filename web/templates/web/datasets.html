@@ -15,12 +15,12 @@
                 <label style="font-size: 13px; font-weight: 600; color: #475569;">Cambiar Dataset:</label>
                 <select id="selectorDataset" style="padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px; background-color: #f8fafc; color: #334155; outline: none; cursor: pointer;">
                     <option value="base" {% if id_seleccionado == 'base' %}selected{% endif %}>
-                        📂 Dataset Inicial Predeterminado
+                        Dataset Inicial Predeterminado
                     </option>
 
                     {% for ds in datasets_usuario %}
                         <option value="{{ ds.id }}" {% if id_seleccionado == ds.id|stringformat:"s" %}selected{% endif %}>
-                            📊 {{ ds.nombre_archivo }} ({{ ds.fecha_subida|date:"d/m/Y" }})
+                            {{ ds.nombre_archivo }} ({{ ds.fecha_subida|date:"d/m/Y" }})
                         </option>
                     {% endfor %}
                 </select>
