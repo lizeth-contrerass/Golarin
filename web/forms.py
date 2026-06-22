@@ -1,11 +1,11 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm
-from .models import Usuario
+from usuarios.models import Usuario
 from datetime import date
 
 class FormularioRegistro(UserCreationForm):
-    nombre = forms.CharField(max_length=100, required=True, label="Nombre(s)")
-    apellido = forms.CharField(max_length=100, required=True, label="Apellido(s)")
+    first_name = forms.CharField(max_length=100, required=True, label="Nombre(s)")
+    last_name = forms.CharField(max_length=100, required=True, label="Apellido(s)")
     email = forms.EmailField(required=True, label="Correo Electrónico")
     f_nacimiento = forms.DateField(
         required=True,
@@ -15,7 +15,7 @@ class FormularioRegistro(UserCreationForm):
 
     class Meta(UserCreationForm.Meta):
         model = Usuario
-        fields = ("username", "nombre", "apellido", "email", "f_nacimiento")
+        fields = ("username", "first_name", "last_name", "email", "f_nacimiento")
 
     # Validación estricta en el Backend
     def clean_f_nacimiento(self):
