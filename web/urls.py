@@ -9,4 +9,5 @@ urlpatterns = [
     path('inicio/', views.inicio, name='inicio'),
     path('datasets/', views.datasets, name='datasets'),
     path('nuevoParlay/', views.nuevoParlay, name='nuevoParlay'),
+    path('historial/', views.historial, name='historial'),
 ]

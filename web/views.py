@@ -82,6 +82,9 @@ def datasets(request):
 
     return render(request, 'web/datasets.html', contexto)
 
+def historial(request):
+    return render(request, 'web/historial.html')
+
 def registro_vista(request):
     if request.user.is_authenticated:
         return redirect('inicio')
