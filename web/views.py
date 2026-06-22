@@ -14,76 +14,113 @@ from .models import Dataset
 def nuevoParlay(request):
     return render(request, 'web/nuevoParlay.html')
 
+
 @login_required(login_url='login')
 def datasets(request):
-    ruta_csv_inicial = os.path.join(settings.MEDIA_ROOT, 'datasets_csv', 'partidos_inicial.csv')
-
-    # 1. Obtener todos los datasets cargados por el usuario actual desde el ORM
-    datasets_usuario = Dataset.objects.filter(usuario=request.user).order_by('-fecha_subida')
-
-    # 2. Identificar qué dataset se quiere visualizar
-    # Puede venir de un cambio en el selector (?id_dataset=...) o tras subir uno nuevo
-    id_dataset_seleccionado = request.GET.get('id_dataset')
-
-    columnas = []
-    partidos = []
-    nombre_dataset_actual = "Dataset Inicial Predeterminado"
-    ruta_csv_actual = ruta_csv_inicial
-
-    # Procesar la subida de un nuevo archivo CSV
+    # 1. PROCESAR SUBIDA DE ARCHIVO (POST)
     if request.method == 'POST' and request.FILES.get('archivo_csv'):
         archivo = request.FILES['archivo_csv']
+        algoritmo = request.POST.get('algoritmo_destino')
 
         if not archivo.name.endswith('.csv'):
             messages.error(request, "El archivo debe tener formato .csv")
             return redirect('datasets')
 
-        nuevo_dataset = Dataset.objects.create(
+        if algoritmo not in ['KNN', 'NB']:
+            messages.error(request, "Selecciona un algoritmo válido.")
+            return redirect('datasets')
+
+        # Guardar en base de datos.
+        Dataset.objects.create(
             usuario=request.user,
             nombre_archivo=archivo.name,
+            algoritmo=algoritmo,
             archivo=archivo
         )
-        messages.success(request, f"¡Archivo '{archivo.name}' cargado exitosamente!")
+        messages.success(request, f"¡Archivo '{archivo.name}' cargado para {algoritmo} exitosamente!")
+        return redirect('datasets')
 
-        # Al subir uno nuevo, lo dejamos como el activo inmediatamente
-        ruta_csv_actual = nuevo_dataset.archivo.path
-        nombre_dataset_actual = nuevo_dataset.nombre_archivo
-        id_dataset_seleccionado = str(nuevo_dataset.id)
+    # 2. MANEJO DE VISUALIZACIÓN Y FILTROS (GET)
+    id_dataset_seleccionado = request.GET.get('id_dataset')
+    tipo_vista = request.GET.get('tipo') # 'propio' o 'predeterminado'
+    filtro_algo = request.GET.get('algo', 'TODOS') # KNN, NB o TODOS
 
-    elif id_dataset_seleccionado and id_dataset_seleccionado != 'base':
-        # Si el usuario seleccionó un dataset propio en el menú desplegable
-        try:
-            dataset_obj = Dataset.objects.get(id=id_dataset_seleccionado, usuario=request.user)
-            ruta_csv_actual = dataset_obj.archivo.path
-            nombre_dataset_actual = dataset_obj.nombre_archivo
-        except Dataset.DoesNotExist:
-            messages.error(request, "El dataset seleccionado no existe o no tienes permiso.")
-            ruta_csv_actual = ruta_csv_inicial
+    # -- Datasets Propios (De la BD) --
+    datasets_usuario = Dataset.objects.filter(usuario=request.user).order_by('-fecha_subida')
+    if filtro_algo != 'TODOS':
+        datasets_usuario = datasets_usuario.filter(algoritmo=filtro_algo)
 
-    # 3. Intentar leer el CSV seleccionado con Pandas
-    if os.path.exists(ruta_csv_actual):
+    # -- Datasets Predeterminados (Lectura local de las carpetas) --
+    datasets_predeterminados = []
+    ruta_base = os.path.join(settings.MEDIA_ROOT, 'datasets_csv')
+
+    # Buscar en carpeta KNN
+    if filtro_algo in ['TODOS', 'KNN']:
+        knn_dir = os.path.join(ruta_base, 'knn')
+        if os.path.exists(knn_dir):
+            for f in os.listdir(knn_dir):
+                if f.endswith('.csv'):
+                    datasets_predeterminados.append({'id': f'knn_{f}', 'nombre': f, 'algo': 'KNN', 'ruta': os.path.join(knn_dir, f)})
+
+    # Buscar en carpeta Naive Bayes
+    if filtro_algo in ['TODOS', 'NB']:
+        nb_dir = os.path.join(ruta_base, 'naivebayes')
+        if os.path.exists(nb_dir):
+            for f in os.listdir(nb_dir):
+                if f.endswith('.csv'):
+                    datasets_predeterminados.append({'id': f'nb_{f}', 'nombre': f, 'algo': 'NB', 'ruta': os.path.join(nb_dir, f)})
+
+    columnas = []
+    partidos = []
+    nombre_dataset_actual = "Ninguno seleccionado"
+    ruta_csv_actual = None
+
+    # 3. DETERMINAR QUÉ ARCHIVO LEER CON PANDAS
+    if id_dataset_seleccionado:
+        if tipo_vista == 'propio':
+            try:
+                dataset_obj = Dataset.objects.get(id=id_dataset_seleccionado, usuario=request.user)
+                ruta_csv_actual = dataset_obj.archivo.path
+                nombre_dataset_actual = f"{dataset_obj.nombre_archivo} ({dataset_obj.get_algoritmo_display()})"
+            except Dataset.DoesNotExist:
+                messages.error(request, "Dataset propio no encontrado.")
+
+        elif tipo_vista == 'predeterminado':
+            for ds in datasets_predeterminados:
+                if ds['id'] == id_dataset_seleccionado:
+                    ruta_csv_actual = ds['ruta']
+                    nombre_dataset_actual = f"{ds['nombre']} ({ds['algo']})"
+                    break
+            if not ruta_csv_actual:
+                messages.error(request, "Dataset predeterminado no encontrado.")
+
+    # 4. LEER CSV SELECCIONADO
+    if ruta_csv_actual and os.path.exists(ruta_csv_actual):
         try:
             df = pd.read_csv(ruta_csv_actual)
             if df.empty:
-                messages.warning(request, "El archivo CSV seleccionado está vacío.")
+                messages.warning(request, "El archivo CSV está vacío.")
             else:
                 columnas = df.columns.tolist()
                 partidos = df.head(10).values.tolist()
         except Exception as e:
-            messages.error(request, f"Error al procesar el archivo CSV: {str(e)}")
+            messages.error(request, f"Error al leer el archivo: {str(e)}")
 
     contexto = {
         'columnas': columnas,
         'partidos': partidos,
         'nombre_dataset': nombre_dataset_actual,
         'datasets_usuario': datasets_usuario,
-        'id_seleccionado': id_dataset_seleccionado or 'base'
+        'datasets_predeterminados': datasets_predeterminados,
+        'id_seleccionado': id_dataset_seleccionado,
     }
 
     return render(request, 'web/datasets.html', contexto)
 
+
 def historial(request):
     return render(request, 'web/historial.html')
+
 
 def registro_vista(request):
     if request.user.is_authenticated:
@@ -92,7 +129,7 @@ def registro_vista(request):
     if request.method == 'POST':
         form = FormularioRegistro(request.POST)
         if form.is_valid():
-            # Guarda de forma segura en la base de datos (encriptando la contraseña)
+            # Guarda de forma segura en la base de datos
             user = form.save()
             # Inicia la sesión automáticamente tras el registro exitoso
             login(request, user)
@@ -109,18 +146,17 @@ def login_vista(request):
         return redirect('inicio')
 
     if request.method == 'POST':
-        # AuthenticationForm ya viene integrado en Django y valida usuario y contraseña
         form = AuthenticationForm(request, data=request.POST)
         if form.is_valid():
             username = form.cleaned_data.get('username')
             password = form.cleaned_data.get('password')
 
-            # Autentica las credenciales contra la Base de Datos
+            # Autentica las credenciales
             user = authenticate(username=username, password=password)
             if user is not None:
-                login(request, user)  # Crea la sesión del usuario en el servidor
+                login(request, user)
                 messages.success(request, f"¡Hola de nuevo, {user.username}!")
-                return redirect('inicio')  # <-- Redirección al inicio exitoso
+                return redirect('inicio')
             else:
                 messages.error(request, "Usuario o contraseña incorrectos.")
         else:
@@ -130,15 +166,14 @@ def login_vista(request):
 
     return render(request, 'web/login.html', {'form': form})
 
+
 @login_required(login_url='login')
 def logout_vista(request):
     logout(request)
     return redirect('index')
 
 
-# SESIÓN REQUERIDA PARA EL PANEL DE INICIO (SIDEBAR)
 @login_required(login_url='login')
 def inicio(request):
-    # Aquí puedes enviar datos específicos si el usuario es administrador
     es_admin = request.user.is_staff or request.user.is_superuser
     return render(request, 'web/inicio.html', {'es_admin': es_admin})
