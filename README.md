@@ -9,7 +9,7 @@ Sigue estos pasos para clonar el repositorio y levantar el entorno de desarrollo
 ## 1. Clonar el repositorio
 Abre tu terminal en la carpeta en la que desees clonar el repositorio e introduce estos comandos
 ~~~
-git clone <URL_DE_TU_REPOSITORIO>
+git clone https://github.com/lizeth-contrerass/Golarin.git
 cd Golarin
 ~~~
 
@@ -45,4 +45,9 @@ python manage.py runserver
 Si instalas una nueva librería, recuerda actualizar la lista de dependencias:
 ~~~
 pip freeze > requirements.txt
+~~~
+Tras realizar un git pull, procura volver a ejecutar los siguientes comandos antes de ``python manage.py runserver`` para evitar fallos:
+~~~
+python manage.py makemigrations
+python manage.py migrate
 ~~~
