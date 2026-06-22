@@ -1,0 +1,65 @@
+{% extends 'web/index.html' %}
+{% block contenido %}
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<div style="max-width: 420px; margin: 40px auto; background: white; padding: 35px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.05);">
+    <h2 style="font-family: 'Tomorrow', sans-serif; font-size: 22px; margin-bottom: 20px; color: #0d1527; text-align: center;">Crear Cuenta</h2>
+
+    <form id="registroForm" method="POST" style="display: flex; flex-direction: column; gap: 15px;">
+        {% csrf_token %}
+        {% for field in form %}
+            <div>
+                <label style="display: block; font-size: 13px; color: #64748b; margin-bottom: 5px; font-weight: 500;">{{ field.label }}</label>
+                {{ field }}
+                {% if field.errors %}
+                    <span style="color: #ef4444; font-size: 11px;">{{ field.errors.0 }}</span>
+                {% endif %}
+            </div>
+        {% endfor %}
+        <button type="submit" style="background: #2563eb; color: white; border: none; padding: 12px; border-radius: 20px; font-weight: 600; cursor: pointer; margin-top: 10px; font-size: 14px;">Confirmar Registro</button>
+    </form>
+</div>
+
+<style>
+    form input { width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px; outline: none; }
+    form input:focus { border-color: #2563eb; }
+    form .helptext { display: block; font-size: 11px; color: #94a3b8; margin-top: 4px; }
+</style>
+
+<script>
+document.getElementById('registroForm').addEventListener('submit', function(event) {
+    const fechaInput = document.getElementById('f_nacimiento').value;
+
+    if (!fechaInput) {
+        event.preventDefault();
+        SwerAl("Por favor, ingresa tu fecha de nacimiento.");
+        return;
+    }
+
+    const fechaNacimiento = new Date(fechaInput);
+    const hoy = new Date();
+
+    // Calcular edad exacta en JavaScript
+    let edad = hoy.getFullYear() - fechaNacimiento.getFullYear();
+    const diferenciaMeses = hoy.getMonth() - fechaNacimiento.getMonth();
+
+    if (diferenciaMeses < 0 || (diferenciaMeses === 0 && hoy.getDate() < fechaNacimiento.getDate())) {
+        edad--;
+    }
+
+    // Si es menor de 18, detenemos el envío y disparamos SweetAlert
+    if (edad < 18) {
+        event.preventDefault(); // Evita que el formulario se mande a Django
+
+        Swal.fire({
+            title: 'Acceso Restringido',
+            text: 'Debes ser mayor de 18 años para poder usar y registrarte en Golarín.',
+            icon: 'error',
+            confirmButtonColor: '#2563eb',
+            background: '#ffffff',
+            color: '#0d1527'
+        });
+    }
+});
+</script>
+{% endblock %}

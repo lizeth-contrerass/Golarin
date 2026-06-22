@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+{% load static %}
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Golarín - Clasificación Inteligente de Fútbol</title>
+    <link rel="icon" href="{% static 'web/imagenes/golarin.png' %}" type="image/x-icon">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{% static 'web/css/estilos.css' %}">
+</head>
+
+<body>
+<div id="contenedor">
+    <header>
+        <div class="header-left">
+            <a href="{% url 'index' %}" class="logo-link">
+                <div class="logo">
+                    <img src="{% static 'web/imagenes/golarin.png' %}" alt="Logo">
+                    <span class="brand-name">Golarín</span>
+                </div>
+            </a>
+        </div>
+
+        <div class="header-right">
+            <a href="{% url 'registro' %}" class="btn-nav">Registro</a>
+            <a href="{% url 'logIn' %}" class="btn-nav">Iniciar Sesión</a>
+        </div>
+    </header>
+
+    <main>
+        {% if request.path == '/' %}
+            <section class="hero-section">
+                <h1 class="hero-title">Predice y Clasifica Resultados de Fútbol con Inteligencia Artificial</h1>
+                <p class="hero-subtitle">Golarín utiliza algoritmos avanzados de Machine Learning como Naive Bayes y k-NN para analizar datasets deportivos y descubrir patrones de victoria, empate o derrota.</p>
+                <div class="hero-buttons">
+                    <a href="{% url 'registro' %}" class="btn-hero-primary">Comenzar Ahora</a>
+                    <a href="#algoritmos" class="btn-hero-secondary">Saber más</a>
+                </div>
+            </section>
+
+            <section id="algoritmos" class="features-section">
+                <h2 class="section-title">Nuestros Modelos Predictivos</h2>
+                <div class="features-grid">
+                    <div class="feature-card">
+                        <div class="feature-icon"><i class="fa-solid fa-calculator"></i></div>
+                        <h3>Naive Bayes</h3>
+                        <p>Clasificador probabilístico basado en el Teorema de Bayes. Calcula de forma eficiente las probabilidades de un resultado considerando la independencia de variables históricas como goles, localía y rachas.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon"><i class="fa-solid fa-chart-line"></i></div>
+                        <h3>k-NN (k-Nearest Neighbors)</h3>
+                        <p>Algoritmo basado en distancias métricas. Clasifica el desenlace de un partido comparándolo con los "k" encuentros históricos más similares o vecinos dentro del espacio de características.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon"><i class="fa-solid fa-database"></i></div>
+                        <h3>Gestión de Datasets</h3>
+                        <p>Sube, limpia y procesa conjuntos de datos estructurados para entrenar tus modelos, optimizando métricas de precisión y Recall antes de cada jornada.</p>
+                    </div>
+                </div>
+            </section>
+        {% endif %}
+
+        {% block contenido %}
+        {% endblock %}
+    </main>
+</div>
+
+<footer>
+    <div id="linea"></div>
+    <div>
+        <p>© 2026 Golarín. Todos los derechos reservados.</p>
+    </div>
+</footer>
+
+</body>
+</html>

@@ -37,11 +37,11 @@
         <div class="sidebar-footer">
             <div class="perfil-usuario">
                 <div class="avatar">
-                    <span class="avatar-text">U</span>
+                    <span class="avatar-text">{{ user.username.0|upper }}</span>
                 </div>
                 <div class="usuario-info">
-                    <a href="{% url 'logOut' %}" class="username">Usuario</a>
-                    <span class="user-role">Perfil</span>
+                    <a href="{% url 'nuevoParlay' %}" class="username">{{ user.nombre }} {{ user.apellido }}</a>
+                    <span class="user-role">@{{ user.username }}</span>
                 </div>
             </div>
 

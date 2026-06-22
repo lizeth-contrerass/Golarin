@@ -120,3 +120,5 @@ STATIC_URL = 'static/'
 STATICFILES_DIRS = [
     BASE_DIR / "web" / "static",
 ]
+
+AUTH_USER_MODEL = 'web.Usuario'

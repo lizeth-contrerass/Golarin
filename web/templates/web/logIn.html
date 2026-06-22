@@ -1,0 +1,25 @@
+{% extends 'web/index.html' %}
+{% block contenido %}
+<div style="max-width: 400px; margin: 60px auto; background: white; padding: 35px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.05);">
+    <h2 style="font-family: 'Tomorrow', sans-serif; font-size: 22px; margin-bottom: 20px; color: #0d1527; text-align: center;">Iniciar Sesión</h2>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div style="background: #fee2e2; color: #991b1b; padding: 10px; border-radius: 6px; margin-bottom: 15px; font-size: 13px;">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+
+    <form method="POST" style="display: flex; flex-direction: column; gap: 15px;">
+        {% csrf_token %}
+        <div>
+            <label style="display: block; font-size: 13px; color: #64748b; margin-bottom: 5px; font-weight: 500;">Usuario</label>
+            <input type="text" name="username" required style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px; outline: none;">
+        </div>
+        <div>
+            <label style="display: block; font-size: 13px; color: #64748b; margin-bottom: 5px; font-weight: 500;">Contraseña</label>
+            <input type="password" name="password" required style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px; outline: none;">
+        </div>
+        <button type="submit" style="background: #2563eb; color: white; border: none; padding: 12px; border-radius: 20px; font-weight: 600; cursor: pointer; margin-top: 10px; font-size: 14px;">Entrar a Golarín</button>
+    </form>
+</div>
+{% endblock %}
