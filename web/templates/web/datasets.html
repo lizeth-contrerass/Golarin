@@ -1,16 +1,71 @@
 {% extends 'web/base.html' %}
-
 {% block contenido %}
 
-<h1>DATASETS</h1>
+<div style="max-width: 1000px; margin: 30px auto; padding: 20px; font-family: 'Segoe UI', Roboto, sans-serif;">
 
-<p>
-    Esta es otra página dentro del mismo proyecto.
-</p>
+    <div style="background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
 
-<p>
-    Al hacer clic en el menú superior,
-    Django carga esta vista.
-</p>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 15px;">
+            <div>
+                <h3 style="color: #0d1527; margin: 0 0 5px 0;">Visualización de Datos</h3>
+                <span style="color: #64748b; font-size: 13px;">Mostrando: <strong>{{ nombre_dataset }}</strong></span>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <label style="font-size: 13px; font-weight: 600; color: #475569;">Cambiar Dataset:</label>
+                <select id="selectorDataset" style="padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px; background-color: #f8fafc; color: #334155; outline: none; cursor: pointer;">
+                    <option value="base" {% if id_seleccionado == 'base' %}selected{% endif %}>
+                        📂 Dataset Inicial Predeterminado
+                    </option>
+
+                    {% for ds in datasets_usuario %}
+                        <option value="{{ ds.id }}" {% if id_seleccionado == ds.id|stringformat:"s" %}selected{% endif %}>
+                            📊 {{ ds.nombre_archivo }} ({{ ds.fecha_subida|date:"d/m/Y" }})
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+
+        {% if partidos %}
+            <div style="overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 8px;">
+                <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 14px;">
+                    <thead>
+                        <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0;">
+                            {% for col in columnas %}
+                                <th style="padding: 12px 16px; color: #334155; font-weight: 600;">{{ col }}</th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for fila in partidos %}
+                            <tr style="border-bottom: 1px solid #f1f5f9;">
+                                {% for valor in fila %}
+                                    <td style="padding: 12px 16px; color: #475569;">{{ valor }}</td>
+                                {% endfor %}
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <p style="color: #94a3b8; font-size: 12px; margin-top: 10px; font-style: italic;">
+                * Mostrando las primeras 10 filas del archivo para optimizar el rendimiento.
+            </p>
+        {% else %}
+            <div style="text-align: center; padding: 40px; color: #94a3b8; border: 2px dashed #e2e8f0; border-radius: 8px;">
+                <p style="margin: 0; font-size: 15px;">No hay registros disponibles para mostrar.</p>
+            </div>
+        {% endif %}
+    </div>
+
+</div>
+
+<script>
+document.getElementById('selectorDataset').addEventListener('change', function() {
+    const idDataset = this.value;
+    // Redirige a la misma página añadiendo el parámetro id_dataset en la URL
+    window.location.href = "{% url 'datasets' %}?id_dataset=" + idDataset;
+});
+</script>
 
 {% endblock %}
