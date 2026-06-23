@@ -69,6 +69,8 @@ class Parlay(models.Model):
     # Guardamos los partidos agregados en formato JSON
     partidos_data = models.JSONField(default=list)
 
-    # ESTE ES EL __STR__ DE PARLAY
+    # NUEVO CAMPO: Guarda la probabilidad multiplicada acumulada (ej: 18.45)
+    probabilidad_combinada = models.FloatField(null=True, blank=True)
+
     def __str__(self):
         return f"Parlay #{self.id} - {self.usuario.username} ({self.fecha_creacion.strftime('%d/%m/%Y')})"

@@ -20,10 +20,14 @@ from .utils import (
     verificar_naive_bayes,
 )
 
-from django.http import JsonResponse
 import json
+import pandas as pd
+from django.shortcuts import render
+from django.contrib.auth.decorators import login_required
+from django.http import JsonResponse
 from .utils import calcular_naive_bayes
-from .models import Parlay
+from .models import Parlay, Dataset
+
 
 @login_required(login_url='login')
 def nuevoParlay(request):
@@ -99,20 +103,37 @@ def nuevoParlay(request):
                     'ganador': clase_ganadora
                 })
 
-            # PERSISTENCIA AGRUPADA: Se crea una sola instancia de Parlay para toda la ronda.
-            # Esto genera un único ID y un único campo 'fecha_creacion' (Timestamp) para todos estos partidos.
+            # 2. CÁLCULO DE LA PROBABILIDAD COMBINADA
+            prob_combinada_total = None
+            if len(partidos_calculados) > 1:
+                acumulado = 1.0
+                for partido in partidos_calculados:
+                    clase_ganadora = partido['ganador']
+                    # Se divide entre 100.0 para multiplicar en escala decimal (0.0 a 1.0)
+                    prob_ganador_decimal = float(partido['probabilidades'][clase_ganadora]) / 100.0
+                    acumulado *= prob_ganador_decimal
+
+                # Se regresa a porcentaje con redondeo a 2 decimales significativos
+                prob_combinada_total = round(acumulado * 100, 2)
+
+            # PERSISTENCIA AGRUPADA: Se guarda el parlay con su probabilidad combinada calculada
             parlay_obj = Parlay.objects.create(
                 usuario=usuario,
                 dataset=dataset,
-                partidos_data=partidos_calculados
+                partidos_data=partidos_calculados,
+                probabilidad_combinada=prob_combinada_total
             )
 
-            return JsonResponse({'status': 'success', 'resultados': partidos_calculados})
+            return JsonResponse({
+                'status': 'success',
+                'resultados': partidos_calculados,
+                'probabilidad_combinada': prob_combinada_total
+            })
 
         except Exception as e:
             return JsonResponse({'error': str(e)}, status=500)
 
-    # 2. Manejo de peticiones AJAX (GET para cargar equipos dinámicamente)
+    # 3. Manejo de peticiones AJAX (GET para cargar equipos dinámicamente)
     if request.method == 'GET' and request.GET.get('action') == 'get_equipos':
         ds_id = request.GET.get('dataset_id')
         try:
@@ -124,10 +145,9 @@ def nuevoParlay(request):
         except Dataset.DoesNotExist:
             return JsonResponse({'error': 'Dataset no encontrado'}, status=404)
 
-    # 3. Carga inicial de la página
+    # 4. Carga inicial de la página
     datasets_disponibles = Dataset.objects.filter(procesado=True)
     return render(request, 'web/nuevoParlay.html', {'datasets_disponibles': datasets_disponibles})
-
 
 import os
 import pandas as pd
