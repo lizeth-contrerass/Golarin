@@ -93,15 +93,21 @@
         padding: 2px 6px;
         border-radius: 4px;
     }
+    .inicio-container {
+        max-width: 1080px;
+        margin: 30px auto;
+        font-family: 'Segoe UI', sans-serif;
+    }
 </style>
 
+<div class="inicio-container">
     <div style="margin-bottom: 25px;">
         <h1 class="tomorrow-medium">Consulta la clasificación de un nuevo parlay</h1>
         <p>Elige el dataset, selecciona los equipos contrincantes para tus partidos y obtén la clasificación instantánea.</p>
     </div>
 
+</div>
 <div class="parlay-container">
-
     <div class="dataset-selector-box">
         <label style="font-weight: 600; color: #334155;">Elige el Dataset:</label>
         <select id="datasetSelector" class="form-control-inline" onchange="cargarConfiguracionDataset(this.value)">

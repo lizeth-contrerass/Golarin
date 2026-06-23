@@ -375,8 +375,43 @@ def logout_vista(request):
 
 @login_required(login_url='login')
 def inicio(request):
-    es_admin = request.user.is_staff or request.user.is_superuser
-    return render(request, 'web/inicio.html', {'es_admin': es_admin})
+    usuario = request.user
+    es_admin = usuario.is_staff or usuario.is_superuser
+
+    # --- CONTADORES DE DATASETS ---
+    datasets_propios = Dataset.objects.filter(usuario=usuario, tipo='propio').count()
+    datasets_predeterminados = Dataset.objects.filter(tipo='predeterminado').count()
+    total_datasets = datasets_propios + datasets_predeterminados
+
+    # --- CONTADORES DE PARLAYS Y PARTIDOS ---
+    all_parlays = Parlay.objects.filter(usuario=usuario)
+
+    total_parlays_count = 0
+    total_partidos_count = 0
+
+    for p in all_parlays:
+        # Si tiene más de un partido dentro del JSON, cuenta como parlay
+        if len(p.partidos_data) > 1:
+            total_parlays_count += 1
+        else:
+            total_partidos_count += 1
+
+    suma_total_rondas = total_parlays_count + total_partidos_count
+
+    # --- ÚLTIMOS 3 REGISTROS RECIENTES ---
+    recientes = all_parlays.order_by('-fecha_creacion')[:3]
+
+    context = {
+        'es_admin': es_admin,
+        'datasets_propios': datasets_propios,
+        'datasets_predeterminados': datasets_predeterminados,
+        'total_datasets': total_datasets,
+        'total_parlays_count': total_parlays_count,
+        'total_partidos_count': total_partidos_count,
+        'suma_total_rondas': suma_total_rondas,
+        'recientes': recientes,
+    }
+    return render(request, 'web/inicio.html', context)
 
 
 @login_required(login_url='login')

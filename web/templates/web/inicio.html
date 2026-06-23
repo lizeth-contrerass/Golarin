@@ -1,12 +1,326 @@
 {% extends 'web/base.html' %}
-
 {% block contenido %}
-<div>
-    <h1 class="tomorrow-medium">Bienvenid@ de vuelta {{ user.first_name }}</h1>
-    <p>Te presentamos tus estadísticas generales</p>
+
+<style>
+    .inicio-container {
+        max-width: 1080px;
+        margin: 30px auto;
+        font-family: 'Segoe UI', sans-serif;
+    }
+
+    /* Grid Principal */
+    .dashboard-grid {
+        display: grid;
+        grid-template-columns: 1.1fr 1.2fr;
+        gap: 25px;
+        margin-top: 30px;
+    }
+    @media (max-width: 850px) {
+        .dashboard-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    /* Paneles Contenedores Principales */
+    .panel-card {
+        background: white;
+        border: 1px solid #e2e8f0;
+        border-radius: 16px;
+        padding: 24px;
+        box-shadow: 0 4px 20px rgba(13, 21, 39, 0.03);
+    }
+    .panel-card h3 {
+        color: #0d1527;
+        margin: 0 0 20px 0;
+        font-size: 17px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    /* DISEÑO ESTILO COMPONENTE DE LA IMAGEN (STAT BOX) */
+    .stat-box-container {
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+    }
+    .stat-box {
+        background: white;
+        border: 1px solid #f1f5f9;
+        border-radius: 14px;
+        padding: 18px 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.01);
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .stat-box:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.04);
+    }
+    .stat-info {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+    .stat-label {
+        font-size: 13px;
+        color: #64748b;
+        font-weight: 600;
+    }
+    .stat-number {
+        font-size: 28px;
+        font-weight: 800;
+        color: #0d1527;
+        line-height: 1;
+    }
+
+    /* Bloques de Iconos Coloridos Estilo Referencia */
+    .icon-badge {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+    }
+
+    /* Variaciones de Color */
+    .bg-blue { background-color: #e0f2fe; color: #0284c7; }
+    .bg-amber { background-color: #fef3c7; color: #d97706; }
+    .bg-purple { background-color: #f3e8ff; color: #7c3aed; }
+    .bg-green { background-color: #dcfce7; color: #16a34a; }
+    .bg-indigo { background-color: #e0e7ff; color: #4f46e5; }
+
+    /* Separador Total */
+    .total-divider-box {
+        background: #f8fafc;
+        border: 1px dashed #cbd5e1;
+        border-radius: 12px;
+        padding: 12px 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 5px;
+    }
+
+    /* Panel de Recientes */
+    .tooltip-container {
+        position: relative;
+        margin-bottom: 12px;
+    }
+    .reciente-item {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 14px 18px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    .reciente-item:hover {
+        transform: translateX(4px);
+        background: #f1f5f9;
+        border-color: #cbd5e1;
+    }
+    .badge-tipo {
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+    }
+    .badge-parlay { background-color: #e0f2fe; color: #0369a1; }
+    .badge-partido { background-color: #ffedd5; color: #c2410c; }
+
+    .btn-ver-mas {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 13px;
+        color: #3b82f6;
+        text-decoration: none;
+        font-weight: 700;
+    }
+    .btn-ver-mas:hover { color: #1d4ed8; }
+
+    /* Ventana emergente Hover (Tooltip) */
+    .tooltip-floating {
+        position: absolute;
+        top: 100%;
+        left: 5px;
+        right: 5px;
+        background: #0d1527;
+        color: #f8fafc;
+        border-radius: 10px;
+        padding: 16px;
+        font-size: 12px;
+        box-shadow: 0 12px 25px rgba(0, 0, 0, 0.25);
+        z-index: 50;
+        opacity: 0;
+        visibility: hidden;
+        transform: translateY(5px);
+        transition: all 0.2s ease;
+    }
+    .tooltip-container:hover .tooltip-floating {
+        opacity: 1;
+        visibility: visible;
+        transform: translateY(4px);
+    }
+    .tooltip-match-row {
+        border-bottom: 1px solid #1e293b;
+        padding: 6px 0;
+    }
+    .tooltip-match-row:last-child {
+        border-bottom: none;
+        padding-bottom: 0;
+    }
+    .tooltip-winner-badge {
+        color: #4ade80;
+        background: rgba(74, 222, 128, 0.1);
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-weight: bold;
+    }
+</style>
+
+<div class="inicio-container">
+    <div style="margin-bottom: 5px;">
+        <h1 class="tomorrow-medium" style="margin-bottom: 5px; color: #0d1527;">Bienvenid@ de vuelta, {{ user.first_name }}</h1>
+        <p style="color: #64748b; margin: 0; font-weight: 500;">Te presentamos un resumen de tus estadísticas del sistema.</p>
+    </div>
+
+    <div class="dashboard-grid">
+
+        <div style="display: flex; flex-direction: column; gap: 25px;">
+
+            <div class="panel-card">
+                <h3><i class="fa-solid fa-chart-line" style="color: #3b82f6;"></i> Panel de Clasificaciones</h3>
+
+                <div class="stat-box-container">
+                    <div class="stat-box">
+                        <div class="stat-info">
+                            <span class="stat-label">Número de Parlays</span>
+                            <span class="stat-number">{{ total_parlays_count }}</span>
+                        </div>
+                        <div class="icon-badge bg-blue">
+                            <i class="fa-solid fa-layer-group"></i>
+                        </div>
+                    </div>
+
+                    <div class="stat-box">
+                        <div class="stat-info">
+                            <span class="stat-label">Partidos Individuales</span>
+                            <span class="stat-number">{{ total_partidos_count }}</span>
+                        </div>
+                        <div class="icon-badge bg-amber">
+                            <i class="fa-solid fa-gamepad"></i>
+                        </div>
+                    </div>
+
+                    <div class="total-divider-box">
+                        <span style="font-size: 13px; font-weight: 700; color: #475569;">Total Clasificaciones</span>
+                        <span style="font-size: 18px; font-weight: 800; color: #0d1527;">{{ suma_total_rondas }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel-card">
+                <h3><i class="fa-solid fa-database" style="color: #a855f7;"></i> Almacenamiento de Datos</h3>
+
+                <div class="stat-box-container">
+                    <div class="stat-box">
+                        <div class="stat-info">
+                            <span class="stat-label">Datasets Propios subidos</span>
+                            <span class="stat-number">{{ datasets_propios }}</span>
+                        </div>
+                        <div class="icon-badge bg-purple">
+                            <i class="fa-solid fa-file-csv"></i>
+                        </div>
+                    </div>
+
+                    <div class="stat-box">
+                        <div class="stat-info">
+                            <span class="stat-label">Datasets Predeterminados</span>
+                            <span class="stat-number">{{ datasets_predeterminados }}</span>
+                        </div>
+                        <div class="icon-badge bg-green">
+                            <i class="fa-solid fa-server"></i>
+                        </div>
+                    </div>
+
+                    <div class="total-divider-box">
+                        <span style="font-size: 13px; font-weight: 700; color: #475569;">Total Datasets en Golarín</span>
+                        <span style="font-size: 18px; font-weight: 800; color: #0d1527;">{{ total_datasets }}</span>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="panel-card" style="height: fit-content;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid #f1f5f9; padding-bottom: 12px;">
+                <h3 style="margin: 0;"><i class="fa-solid fa-clock-rotate-left" style="color: #6366f1;"></i> Actividad Reciente</h3>
+                <a href="{% url 'historial' %}" class="btn-ver-mas">Ver historial completo <i class="fa-solid fa-chevron-right" style="font-size: 11px;"></i></a>
+            </div>
+
+            {% for item in recientes %}
+            <div class="tooltip-container">
+                <div class="reciente-item">
+                    <div>
+                        {% if item.partidos_data|length > 1 %}
+                            <span class="badge-tipo badge-parlay"><i class="fa-solid fa-layer-group"></i> Parlay</span>
+                        {% else %}
+                            <span class="badge-tipo badge-partido"><i class="fa-solid fa-gamepad"></i> Partido</span>
+                        {% endif %}
+                        <span style="margin-left: 10px; font-size: 13px; font-weight: 700; color: #334155;">
+                            {{ item.partidos_data|length }} partido{{ item.partidos_data|length|pluralize }}
+                        </span>
+                        <div style="font-size: 11px; color: #94a3b8; margin-top: 4px; font-weight: 500;">
+                            <i class="fa-solid fa-table-list"></i> {{ item.dataset.nombre_archivo }}
+                        </div>
+                    </div>
+                    <div style="text-align: right; font-size: 12px; color: #64748b; font-weight: 600; background: #f1f5f9; padding: 4px 10px; border-radius: 8px;">
+                        {{ item.fecha_creacion|date:"d/m/Y H:i" }}
+                    </div>
+                </div>
+
+                <div class="tooltip-floating">
+                    <div style="font-weight: 700; margin-bottom: 8px; color: #38bdf8; text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px;">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i> Predicción Naive Bayes:
+                    </div>
+                    {% for partido in item.partidos_data %}
+                    <div class="tooltip-match-row">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 12px;">
+                            <span><strong>{{ partido.home }}</strong> <span style="color:#64748b;">vs</span> <strong>{{ partido.away }}</strong></span>
+                            <span class="tooltip-winner-badge">🏆 {{ partido.ganador }}</span>
+                        </div>
+                        <div style="color: #94a3b8; font-size: 11px; display: flex; gap: 8px;">
+                            {% for clase, prob in partido.probabilidades.items %}
+                                <span>{{ clase }}: <span style="color: #f8fafc; font-weight:600;">{{ prob }}%</span></span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% empty %}
+            <div style="text-align: center; padding: 50px 20px; color: #94a3b8; border: 2px dashed #e2e8f0; border-radius: 12px;">
+                <i class="fa-solid fa-folder-open" style="font-size: 34px; margin-bottom: 12px; color: #cbd5e1;"></i>
+                <p style="margin: 0; font-size: 14px; font-weight: 500;">No has realizado consultas de clasificación aún.</p>
+            </div>
+            {% endfor %}
+        </div>
+
+    </div>
 </div>
-
-
-
 
 {% endblock %}

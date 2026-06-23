@@ -40,7 +40,7 @@
         <div class="sidebar-footer">
             <div class="perfil-usuario">
                 <div class="avatar">
-                    <span class="avatar-text">{{ user.username.0|upper }}</span>
+                    <span class="avatar-text">{{ user.first_name.0|upper }}{{ user.last_name.0|upper }}</span>
                 </div>
                 <div class="usuario-info">
                     <a href="{% url 'nuevoParlay' %}" class="username">{{ user.first_name }} {{ user.last_name }}</a>
