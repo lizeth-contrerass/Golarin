@@ -41,7 +41,6 @@
         to { opacity: 1; }
     }
 
-    /* Estilos generales para inputs y selects */
     .form-control {
         padding: 8px 12px;
         border: 1px solid #cbd5e1;
@@ -53,12 +52,56 @@
         width: 100%;
         max-width: 300px;
     }
+
+    .metrics-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 15px;
+        margin-bottom: 25px;
+        background: #f8fafc;
+        padding: 15px;
+        border-radius: 10px;
+        border: 1px solid #e2e8f0;
+    }
+    .metric-card {
+        background: white;
+        padding: 12px;
+        border-radius: 8px;
+        border: 1px solid #e2e8f0;
+        text-align: center;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.01);
+    }
+    .metric-title {
+        font-size: 11px;
+        text-transform: uppercase;
+        color: #64748b;
+        font-weight: 700;
+        margin-bottom: 4px;
+        letter-spacing: 0.5px;
+    }
+    .metric-value {
+        font-size: 18px;
+        font-weight: 700;
+        color: #0d1527;
+    }
 </style>
 
 <div>
     <h1 class="tomorrow-medium">Añade y/o consulta los Datasets</h1>
     <p>Sube tu propio dataset en formato csv, consulta tus propios datasets o los predeterminados de Golarín</p>
 </div>
+
+{% if messages %}
+    <div style="margin: 20px 0; display: flex; flex-direction: column; gap: 10px;">
+        {% for message in messages %}
+            <div style="padding: 12px 20px; border-radius: 8px; font-size: 14px; font-weight: 600;
+                {% if message.tags == 'error' %} background-color: #fee2e2; color: #991b1b; border: 1px solid #fca5a5;
+                {% else %} background-color: #dcfce7; color: #166534; border: 1px solid #86efac; {% endif %}">
+                {{ message }}
+            </div>
+        {% endfor %}
+    </div>
+{% endif %}
 
 <div style="max-width: 1000px; margin: 30px auto; padding: 20px; font-family: 'Segoe UI', Roboto, sans-serif;">
 
@@ -70,18 +113,16 @@
 
     <div id="tab-subir" class="tab-content active" style="background: white; padding: 25px; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 4px 15px rgba(0,0,0,0.02);">
         <h3 style="color: #0d1527; margin: 0 0 10px 0;"><i class="fa-solid fa-upload"></i> Subir Resultados vía CSV</h3>
-        <p style="color: #64748b; font-size: 14px; margin-bottom: 25px;">Sube tu dataset en formato CSV. Asegúrate de indicar para qué algoritmo está destinado.</p>
+        <p style="color: #64748b; font-size: 14px; margin-bottom: 25px;">Sube tu dataset en formato CSV destinado para el modelo predictivo de Naive Bayes.</p>
 
-        <form method="POST" enctype="multipart/form-data" style="display: flex; flex-direction: column; gap: 20px;">
+        <form method="POST" action="{% url 'datasets' %}" enctype="multipart/form-data" style="display: flex; flex-direction: column; gap: 20px;">
             {% csrf_token %}
 
             <div style="display: flex; gap: 20px; flex-wrap: wrap;">
                 <div style="flex: 1; min-width: 250px;">
-                    <label style="display: block; font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 5px;">Seleccionar Algoritmo</label>
-                    <select name="algoritmo_destino" class="form-control" required>
-                        <option value="">Elige un algoritmo...</option>
-                        <option value="KNN">k-Nearest Neighbors (KNN)</option>
-                        <option value="NB">Naive Bayes</option>
+                    <label style="display: block; font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 5px;">Modelo Algorítmico</label>
+                    <select name="algoritmo_destino" class="form-control" required disabled>
+                        <option value="NB" selected>Naive Bayes</option>
                     </select>
                 </div>
             </div>
@@ -108,37 +149,54 @@
                     <span style="color: #64748b; font-size: 13px;">Mostrando: <strong>{{ nombre_dataset }}</strong></span>
 
                     {% if id_seleccionado and request.GET.tipo == 'propio' %}
-                    <form action="{% url 'eliminar_dataset' id_seleccionado %}?algo={{ request.GET.algo|default:'TODOS' }}" method="POST" onsubmit="return confirm('¿Estás seguro de que deseas eliminar este dataset? Esta acción eliminará el archivo permanentemente.');" style="margin: 0;">
+                    <form action="{% url 'eliminar_dataset' id_seleccionado %}" method="POST" onsubmit="return confirm('¿Estás seguro de que deseas eliminar este dataset?');" style="margin: 0;">
                         {% csrf_token %}
-                        <button type="submit" style="background-color: #ef4444; color: white; border: none; padding: 4px 10px; border-radius: 6px; font-size: 12px; cursor: pointer; font-weight: 600; transition: background 0.2s;">
+                        <button type="submit" style="background-color: #ef4444; color: white; border: none; padding: 4px 10px; border-radius: 6px; font-size: 12px; cursor: pointer; font-weight: 600;">
                             <i class="fa-solid fa-trash"></i> Eliminar
                         </button>
                     </form>
                     {% endif %}
                 </div>
             </div>
-            <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
-                <div>
-                    <label style="font-size: 12px; font-weight: 600; color: #475569; display: block; margin-bottom: 3px;">Filtro Algoritmo:</label>
-                    <select id="filtroAlgoritmoPropios" class="form-control">
-                        <option value="TODOS">Todos</option>
-                        <option value="KNN">k-Nearest Neighbors</option>
-                        <option value="NB">Naive Bayes</option>
-                    </select>
-                </div>
-                <div>
-                    <label style="font-size: 12px; font-weight: 600; color: #475569; display: block; margin-bottom: 3px;">Dataset:</label>
-                    <select id="selectorDatasetPropios" class="form-control" style="cursor: pointer;">
-                        <option value="" disabled selected>Selecciona un archivo...</option>
-                        {% for ds in datasets_usuario %}
-                        <option value="{{ ds.id }}" {% if id_seleccionado == ds.id|stringformat:"s" %}selected{% endif %}>
-                        {{ ds.nombre_archivo }} ({{ ds.fecha_subida|date:"d/m/Y" }})
-                        </option>
-                        {% endfor %}
-                    </select>
-                </div>
+            <div>
+                <label style="font-size: 12px; font-weight: 600; color: #475569; display: block; margin-bottom: 3px;">Dataset:</label>
+                <select id="selectorDatasetPropios" class="form-control" style="cursor: pointer;">
+                    <option value="" disabled selected>Selecciona un archivo...</option>
+                    {% for ds in datasets_usuario %}
+                    <option value="{{ ds.id }}" {% if id_seleccionado == ds.id|stringformat:"s" %}selected{% endif %}>
+                    {{ ds.nombre_archivo }} ({{ ds.fecha_subida|date:"d/m/Y" }})
+                    </option>
+                    {% endfor %}
+                </select>
             </div>
         </div>
+
+        {% if id_seleccionado and request.GET.tipo == 'propio' %}
+            {% if dataset_actual and dataset_actual.procesado %}
+            <div class="metrics-container">
+                <div class="metric-card" style="border-left: 4px solid #10b981;">
+                    <div class="metric-title">Accuracy</div>
+                    <div class="metric-value">{{ dataset_actual.accuracy|floatformat:4 }}</div>
+                </div>
+                <div class="metric-card" style="border-left: 4px solid #ef4444;">
+                    <div class="metric-title">Error</div>
+                    <div class="metric-value">{{ dataset_actual.error|floatformat:4 }}</div>
+                </div>
+                <div class="metric-card" style="border-left: 4px solid #3b82f6;">
+                    <div class="metric-title">Precision</div>
+                    <div class="metric-value">{{ dataset_actual.precision|floatformat:4 }}</div>
+                </div>
+                <div class="metric-card" style="border-left: 4px solid #f59e0b;">
+                    <div class="metric-title">Recall</div>
+                    <div class="metric-value">{{ dataset_actual.recall|floatformat:4 }}</div>
+                </div>
+                <div class="metric-card" style="border-left: 4px solid #6366f1;">
+                    <div class="metric-title">Especificidad</div>
+                    <div class="metric-value">{{ dataset_actual.especificidad|floatformat:4 }}</div>
+                </div>
+            </div>
+            {% endif %}
+        {% endif %}
 
         {% if partidos and request.GET.tipo == 'propio' or not request.GET.tipo %}
         <div style="overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 8px;">
@@ -177,27 +235,16 @@
                 <h3 style="color: #0d1527; margin: 0 0 5px 0;">Datasets Predeterminados</h3>
                 <span style="color: #64748b; font-size: 13px;">Datasets base del sistema</span>
             </div>
-
-            <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
-                <div>
-                    <label style="font-size: 12px; font-weight: 600; color: #475569; display: block; margin-bottom: 3px;">Filtro Algoritmo:</label>
-                    <select id="filtroAlgoritmoPred" class="form-control">
-                        <option value="TODOS">Todos</option>
-                        <option value="KNN">k-Nearest Neighbors</option>
-                        <option value="NB">Naive Bayes</option>
-                    </select>
-                </div>
-                <div>
-                    <label style="font-size: 12px; font-weight: 600; color: #475569; display: block; margin-bottom: 3px;">Dataset:</label>
-                    <select id="selectorDatasetPred" class="form-control" style="cursor: pointer;">
-                        <option value="" disabled selected>Selecciona un archivo predeterminado...</option>
-                        {% for ds in datasets_predeterminados %}
-                        <option value="{{ ds.id }}" {% if id_seleccionado == ds.id %}selected{% endif %}>
-                            {{ ds.nombre }} ({{ ds.algo }})
-                        </option>
-                        {% endfor %}
-                    </select>
-                </div>
+            <div>
+                <label style="font-size: 12px; font-weight: 600; color: #475569; display: block; margin-bottom: 3px;">Dataset:</label>
+                <select id="selectorDatasetPred" class="form-control" style="cursor: pointer;">
+                    <option value="" disabled selected>Selecciona un archivo predeterminado...</option>
+                    {% for ds in datasets_predeterminados %}
+                    <option value="{{ ds.id }}" {% if id_seleccionado == ds.id %}selected{% endif %}>
+                        {{ ds.nombre }} ({{ ds.algo }})
+                    </option>
+                    {% endfor %}
+                </select>
             </div>
         </div>
 
@@ -235,69 +282,37 @@
 </div>
 
 <script>
-    // Lógica para cambiar de pestañas
     function abrirPestana(evt, nombrePestana) {
         var i, tabcontent, tablinks;
-
         tabcontent = document.getElementsByClassName("tab-content");
         for (i = 0; i < tabcontent.length; i++) {
             tabcontent[i].style.display = "none";
             tabcontent[i].classList.remove("active");
         }
-
         tablinks = document.getElementsByClassName("tab-btn");
         for (i = 0; i < tablinks.length; i++) {
             tablinks[i].classList.remove("active");
         }
-
         document.getElementById(nombrePestana).style.display = "block";
         document.getElementById(nombrePestana).classList.add("active");
         evt.currentTarget.classList.add("active");
-
-        // Guardar la pestaña activa en localStorage para mantenerla si la página se recarga
         localStorage.setItem('pestanaActiva', nombrePestana);
     }
 
-    // Mantener la pestaña activa al recargar (Ej. después de subir un CSV o filtrar)
     document.addEventListener("DOMContentLoaded", function() {
         let pestanaActiva = localStorage.getItem('pestanaActiva');
         if (pestanaActiva) {
             let boton = document.querySelector(`.tab-btn[onclick*="${pestanaActiva}"]`);
             if (boton) boton.click();
         }
-
-        // Restaurar valores de los filtros si existen en la URL
-        const urlParams = new URLSearchParams(window.location.search);
-        if(urlParams.has('algo')) {
-            const algo = urlParams.get('algo');
-            document.getElementById('filtroAlgoritmoPropios').value = algo;
-            document.getElementById('filtroAlgoritmoPred').value = algo;
-        }
     });
 
-    // --- NUEVO: Lógica para cuando CAMBIA EL FILTRO de algoritmos ---
-    document.getElementById('filtroAlgoritmoPropios').addEventListener('change', function() {
-        const algo = this.value;
-        // Recargamos la página pasando el nuevo filtro, pero sin un dataset específico
-        window.location.href = `{% url 'datasets' %}?tipo=propio&algo=${algo}`;
-    });
-
-    document.getElementById('filtroAlgoritmoPred').addEventListener('change', function() {
-        const algo = this.value;
-        window.location.href = `{% url 'datasets' %}?tipo=predeterminado&algo=${algo}`;
-    });
-
-    // --- Lógica original: para cuando SELECCIONAS UN DATASET para visualizarlo ---
     document.getElementById('selectorDatasetPropios').addEventListener('change', function() {
-        const idDataset = this.value;
-        const algo = document.getElementById('filtroAlgoritmoPropios').value;
-        window.location.href = `{% url 'datasets' %}?id_dataset=${idDataset}&tipo=propio&algo=${algo}`;
+        window.location.href = `{% url 'datasets' %}?id_dataset=${this.value}&tipo=propio`;
     });
 
     document.getElementById('selectorDatasetPred').addEventListener('change', function() {
-        const idDataset = this.value;
-        const algo = document.getElementById('filtroAlgoritmoPred').value;
-        window.location.href = `{% url 'datasets' %}?id_dataset=${idDataset}&tipo=predeterminado&algo=${algo}`;
+        window.location.href = `{% url 'datasets' %}?id_dataset=${this.value}&tipo=predeterminado`;
     });
 </script>
 
