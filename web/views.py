@@ -20,189 +20,310 @@ from .utils import (
     verificar_naive_bayes,
 )
 
+from django.http import JsonResponse
+import json
+from .utils import calcular_naive_bayes
+from .models import Parlay
 
 @login_required(login_url='login')
 def nuevoParlay(request):
-    return render(request, 'web/nuevoParlay.html')
+    usuario = request.user
+
+    # 1. Manejo de peticiones AJAX (POST para calcular y guardar agrupados)
+    if request.method == 'POST' and request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        try:
+            data = json.loads(request.body)
+            dataset_id = data.get('dataset_id')
+            partidos_input = data.get('partidos', [])
+
+            if not dataset_id or not partidos_input:
+                return JsonResponse({'error': 'Información incompleta'}, status=400)
+
+            dataset = Dataset.objects.get(id=dataset_id)
+            ruta_csv = dataset.archivo.path
+            df = pd.read_csv(ruta_csv)
+
+            # Obtener el promedio de todas las variables continuas del dataset
+            promedios_continuos = {}
+            for col in dataset.cols_continuas:
+                promedios_continuos[col] = float(df[col].astype(float).mean())
+
+            prob_clases = dataset.nb_probabilidades_clases
+            prob_cond = dataset.nb_probabilidades_condicionales
+            param_cont = dataset.nb_parametros_cont
+
+            partidos_calculados = []
+
+            # Identificar dinámicamente qué columnas corresponden a Home y Away en cols_discretas
+            col_home = dataset.cols_discretas[0]
+            col_away = dataset.cols_discretas[1]
+
+            for p in partidos_input:
+                home_value = p.get('home')
+                away_value = p.get('away')
+
+                # Reconstruir el vector completo siguiendo el orden de cols_caracteristicas
+                vector_entrada = []
+                for col in dataset.cols_caracteristicas:
+                    if col == col_home:
+                        vector_entrada.append(home_value)
+                    elif col == col_away:
+                        vector_entrada.append(away_value)
+                    elif col in dataset.cols_continuas:
+                        vector_entrada.append(promedios_continuos[col])
+                    else:
+                        vector_entrada.append(None)
+
+                # Inferencia Naive Bayes
+                probs_brutas = calcular_naive_bayes(
+                    vector_entrada, dataset.cols_caracteristicas, dataset.clases,
+                    prob_clases, prob_cond, param_cont, dataset.cols_discretas, dataset.cols_continuas
+                )
+
+                # Normalización de probabilidades
+                suma_probs = sum(probs_brutas.values())
+                probs_normalizadas = {}
+                if suma_probs > 0:
+                    for k, v in probs_brutas.items():
+                        probs_normalizadas[k] = round((v / suma_probs) * 100, 2)
+                else:
+                    for k in probs_brutas.keys():
+                        probs_normalizadas[k] = round(100 / len(probs_brutas), 2)
+
+                clase_ganadora = max(probs_normalizadas, key=probs_normalizadas.get)
+
+                partidos_calculados.append({
+                    'home': home_value,
+                    'away': away_value,
+                    'probabilidades': probs_normalizadas,
+                    'ganador': clase_ganadora
+                })
+
+            # PERSISTENCIA AGRUPADA: Se crea una sola instancia de Parlay para toda la ronda.
+            # Esto genera un único ID y un único campo 'fecha_creacion' (Timestamp) para todos estos partidos.
+            parlay_obj = Parlay.objects.create(
+                usuario=usuario,
+                dataset=dataset,
+                partidos_data=partidos_calculados
+            )
+
+            return JsonResponse({'status': 'success', 'resultados': partidos_calculados})
+
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+
+    # 2. Manejo de peticiones AJAX (GET para cargar equipos dinámicamente)
+    if request.method == 'GET' and request.GET.get('action') == 'get_equipos':
+        ds_id = request.GET.get('dataset_id')
+        try:
+            dataset = Dataset.objects.get(id=ds_id)
+            return JsonResponse({
+                'cols_discretas': dataset.cols_discretas,
+                'valores': dataset.valores_caracteristicas
+            })
+        except Dataset.DoesNotExist:
+            return JsonResponse({'error': 'Dataset no encontrado'}, status=404)
+
+    # 3. Carga inicial de la página
+    datasets_disponibles = Dataset.objects.filter(procesado=True)
+    return render(request, 'web/nuevoParlay.html', {'datasets_disponibles': datasets_disponibles})
+
+
+import os
+import pandas as pd
+from django.shortcuts import render
+from django.conf import settings
+from .models import Dataset
 
 
 @login_required(login_url='login')
 def datasets(request):
-    dataset_actual = None
-    # 1. PROCESAR SUBIDA DE ARCHIVO (POST)
-    if request.method == 'POST' and request.FILES.get('archivo_csv'):
-        archivo = request.FILES['archivo_csv']
-        algoritmo = request.POST.get('algoritmo_destino')
+    usuario = request.user if request.user.is_authenticated else None
 
-        if not archivo.name.endswith('.csv'):
-            messages.error(request, "El archivo debe tener formato .csv")
+    # ==========================================
+    # PROCESAMIENTO CUANDO EL USUARIO SUBE UN CSV (POST)
+    # ==========================================
+    if request.method == 'POST':
+        archivo_subido = request.FILES.get('archivo')
+        if not archivo_subido:
+            messages.error(request, "Por favor, selecciona un archivo CSV válido.")
             return redirect('datasets')
-
-        if algoritmo not in ['KNN', 'NB']:
-            messages.error(request, "Selecciona un algoritmo válido.")
-            return redirect('datasets')
-
-        # Se crea la instancia inicial para guardar el archivo físicamente en el disco
-        obj = Dataset.objects.create(
-            usuario=request.user,
-            nombre_archivo=archivo.name,
-            algoritmo=algoritmo,
-            archivo=archivo
-        )
 
         try:
-            # Lectura del archivo recién guardado con pandas
-            df = pd.read_csv(obj.archivo.path)
+            # 1. Crear la instancia inicial del Dataset en la BD
+            dataset = Dataset.objects.create(
+                usuario=usuario,
+                nombre_archivo=archivo_subido.name,
+                tipo='propio',
+                algoritmo='NB',
+                archivo=archivo_subido
+            )
 
-            if df.empty:
-                obj.delete()
-                messages.error(request, "El archivo CSV está vacío.")
+            # 2. Leer el CSV para extraer e inferir metadata
+            df = pd.read_csv(dataset.archivo.path)
+            columnas_totales = df.columns.tolist()
+
+            if len(columnas_totales) < 2:
+                dataset.delete()
+                messages.error(request, "El CSV debe contener al menos las columnas de equipos y la clase.")
                 return redirect('datasets')
 
-            # Estructura base supuesta: [ID, características..., Clase]
-            cols_caracteristicas = df.columns[1:-1].tolist()
-            col_clases = df.columns[-1]
-            clases = [str(c) for c in df[col_clases].unique()]
+            # La última columna por convención matemática y de tu proyecto es la Clase
+            col_clases = columnas_totales[-1]
+            clases_encontradas = df[col_clases].dropna().unique().tolist()
 
-            cols_discretas = []
+            # Las demás columnas son potenciales características
+            cols_caracteristicas = columnas_totales[:-1]
+
+            cols_discretas_temp = []
             cols_continuas = []
-            valores_caracteristicas = {}
 
-            # Clasificar dinámicamente columnas discretas y continuas
-            for cat in cols_caracteristicas:
-                primer_valor = df[cat].dropna().iloc[0] if not df[cat].dropna().empty else "Texto"
+            for col in cols_caracteristicas:
+                # Si los valores no son numéricos, o tienen baja cardinalidad de texto, son discretos (equipos)
+                primer_valor = df[col].dropna().iloc[0] if not df[col].dropna().empty else ""
                 if not es_continuo(primer_valor):
-                    cols_discretas.append(cat)
-                    valores_caracteristicas[cat] = [str(v).capitalize() for v in df[cat].unique()]
+                    cols_discretas_temp.append(col)
                 else:
-                    cols_continuas.append(cat)
+                    cols_continuas.append(col)
 
-            # Poblar metadatos estructurales en el modelo
-            obj.col_clases = col_clases
-            obj.clases = clases
-            obj.cols_caracteristicas = cols_caracteristicas
-            obj.cols_discretas = cols_discretas
-            obj.cols_continuas = cols_continuas
-            obj.valores_caracteristicas = valores_caracteristicas
+            # 3. CRUCIAL: Mapear y ordenar estrictamente [Home, Away] para que no se inviertan
+            col_home = None
+            col_away = None
 
-            # --- PROCESAMIENTO SEGÚN EL ALGORITMO ---
-            if algoritmo == 'NB':
-                # Cálculos probabilísticos de Naive Bayes
-                prob_clases = nb_prob_clases(df, col_clases, clases)
-                prob_cond = nb_prob_cond_discreta(df, cols_discretas, col_clases, clases)
-                param_cont = nb_parametros_continuos(df, cols_continuas, col_clases, clases)
+            # Intentar identificar por palabras clave en el nombre de la columna
+            for col in cols_discretas_temp:
+                col_lower = col.lower()
+                if 'home' in col_lower or 'local' in col_lower:
+                    col_home = col
+                elif 'away' in col_lower or 'visitante' in col_lower or 'visita' in col_lower:
+                    col_away = col
 
-                # Persistencia en campos JSON
-                obj.nb_probabilidades_clases = prob_clases
-                obj.nb_probabilidades_condicionales = prob_cond
-                obj.nb_parametros_cont = param_cont
+            # Si no se identificaron por nombre, tomamos las primeras 2 discretas por orden posicional
+            if not col_home and len(cols_discretas_temp) > 0:
+                col_home = cols_discretas_temp[0]
+            if not col_away and len(cols_discretas_temp) > 1:
+                col_away = cols_discretas_temp[1]
 
-                # Evaluación por resustitución
-                acc, err, prec, rec, esp = verificar_naive_bayes(
-                    df, cols_caracteristicas, col_clases, clases,
-                    prob_clases, prob_cond, param_cont, cols_discretas, cols_continuas
-                )
+            # Reestructurar la lista para garantizar el orden: [0] = Home, [1] = Away
+            cols_discretas = []
+            if col_home: cols_discretas.append(col_home)
+            if col_away: cols_discretas.append(col_away)
 
-            # Asignación de métricas globales de rendimiento
-            obj.accuracy = acc
-            obj.error = err
-            obj.precision = prec
-            obj.recall = rec
-            obj.especificidad = esp
-            obj.procesado = True
-            obj.save()
+            # Agregar cualquier otra discreta sobrante si existiera
+            for col in cols_discretas_temp:
+                if col != col_home and col != col_away:
+                    cols_discretas.append(col)
 
-            messages.success(request, f"¡Archivo '{archivo.name}' cargado, procesado y evaluado con éxito!")
+            # Validar que cumpla con los requisitos mínimos de tu vista 'nuevoParlay'
+            if len(cols_discretas) < 2:
+                dataset.delete()
+                messages.error(request, "No se pudieron identificar las 2 columnas categóricas para Local y Visitante.")
+                return redirect('datasets')
+
+            # 4. Construir diccionario de valores únicos estructurados por columna
+            valores_caracteristicas = {}
+            for col in cols_discretas:
+                # Normalizamos capitalización de strings para homogeneidad en los selectores
+                valores_unicos = df[col].dropna().astype(str).str.capitalize().unique().tolist()
+                valores_caracteristicas[col] = sorted(valores_unicos)
+
+            # 5. Entrenamiento y cálculo de probabilidades del Modelo de Naive Bayes
+            prob_clases = nb_prob_clases(df, col_clases, clases_encontradas)
+            prob_cond = nb_prob_cond_discreta(df, cols_discretas, col_clases, clases_encontradas)
+            param_cont = nb_parametros_continuos(df, cols_continuas, col_clases, clases_encontradas)
+
+            # 6. Cálculo de métricas por resustitución utilizando tu validador de macro-averaging
+            acc, error, prec, rec, esp = verificar_naive_bayes(
+                df, cols_caracteristicas, col_clases, clases_encontradas,
+                prob_clases, prob_cond, param_cont, cols_discretas, cols_continuas
+            )
+
+            # 7. Persistir toda la metadata calculada en el objeto
+            dataset.col_clases = col_clases
+            dataset.clases = [str(c) for c in clases_encontradas]
+            dataset.cols_caracteristicas = cols_caracteristicas
+            dataset.cols_discretas = cols_discretas
+            dataset.cols_continuas = cols_continuas
+            dataset.valores_caracteristicas = valores_caracteristicas
+
+            dataset.nb_probabilidades_clases = prob_clases
+            dataset.nb_probabilidades_condicionales = prob_cond
+            dataset.nb_parametros_cont = param_cont
+
+            dataset.accuracy = acc
+            dataset.error = error
+            dataset.precision = prec
+            dataset.recall = rec
+            dataset.especificidad = esp
+            dataset.procesado = True
+            dataset.save()
+
+            messages.success(request,
+                             f"¡Dataset '{dataset.nombre_archivo}' subido, entrenado y procesado exitosamente!")
+            return redirect('/datasets/?tipo=propio')
 
         except Exception as e:
-            print("=========================================")
-            print(f"ERROR CRÍTICO AL PROCESAR EL DATASET: {str(e)}")
-            import traceback
-            traceback.print_exc()  # Esto te dirá la línea exacta del error
-            print("=========================================")
-            # Reversión y limpieza física en caso de fallo matemático
-            if obj.id:
-                if obj.archivo and os.path.exists(obj.archivo.path):
-                    os.remove(obj.archivo.path)
-                obj.delete()
+            if 'dataset' in locals() and dataset.id:
+                dataset.delete()
             messages.error(request, f"Error al procesar la estructura del dataset: {str(e)}")
+            return redirect('datasets')
 
-        return redirect('datasets')
+    # ==========================================
+    # MANEJO DE RENDERIZADO VISUAL (GET)
+    # ==========================================
+    datasets_usuario = Dataset.objects.filter(usuario=usuario, tipo='propio', procesado=True)
+    datasets_predeterminados = Dataset.objects.filter(tipo='predeterminado', procesado=True)
 
-    # 2. MANEJO DE VISUALIZACIÓN Y FILTROS (GET)
-    id_dataset_seleccionado = request.GET.get('id_dataset')
-    tipo_vista = request.GET.get('tipo')
-    filtro_algo = request.GET.get('algo', 'TODOS')
-
-    # -- Datasets Propios --
-    datasets_usuario = Dataset.objects.filter(usuario=request.user).order_by('-fecha_subida')
-    if filtro_algo != 'TODOS':
-        datasets_usuario = datasets_usuario.filter(algoritmo=filtro_algo)
-
-    # -- Datasets Predeterminados --
-    datasets_predeterminados = []
-    ruta_base = os.path.join(settings.MEDIA_ROOT, 'datasets_csv')
-
-    if filtro_algo in ['TODOS', 'NB']:
-        nb_dir = os.path.join(ruta_base, 'naivebayes')
-        if os.path.exists(nb_dir):
-            for f in os.listdir(nb_dir):
-                if f.endswith('.csv'):
-                    datasets_predeterminados.append(
-                        {'id': f'nb_{f}', 'nombre': f, 'algo': 'NB', 'ruta': os.path.join(nb_dir, f)})
-
+    id_seleccionado = request.GET.get('id_dataset')
+    dataset_actual = None
     columnas = []
     partidos = []
-    nombre_dataset_actual = "Ninguno seleccionado"
-    ruta_csv_actual = None
+    nombre_dataset = "Ninguno"
 
-    # 3. DETERMINAR QUÉ ARCHIVO LEER CON PANDAS
-    if id_dataset_seleccionado:
-        if tipo_vista == 'propio':
-            try:
-                dataset_obj = Dataset.objects.get(id=id_dataset_seleccionado, usuario=request.user)
-                dataset_actual = dataset_obj  # <-- 2. ASIGNA EL OBJETIVO ENCONTRADO
-                ruta_csv_actual = dataset_obj.archivo.path
-                nombre_dataset_actual = f"{dataset_obj.nombre_archivo} ({dataset_obj.get_algoritmo_display()})"
-            except Dataset.DoesNotExist:
-                messages.error(request, "Dataset propio no encontrado.")
-
-        elif tipo_vista == 'predeterminado':
-            for ds in datasets_predeterminados:
-                if ds['id'] == id_dataset_seleccionado:
-                    ruta_csv_actual = ds['ruta']
-                    nombre_dataset_actual = f"{ds['nombre']} ({ds['algo']})"
-                    break
-            if not ruta_csv_actual:
-                messages.error(request, "Dataset predeterminado no encontrado.")
-
-    # 4. LEER CSV SELECCIONADO PARA PASARSE A LA TABLA HTML
-    if ruta_csv_actual and os.path.exists(ruta_csv_actual):
+    if id_seleccionado:
         try:
-            df_view = pd.read_csv(ruta_csv_actual)
-            if df_view.empty:
-                messages.warning(request, "El archivo CSV está vacío.")
-            else:
-                columnas = df_view.columns.tolist()
-                partidos = df_view.head(10).values.tolist()
-        except Exception as e:
-            messages.error(request, f"Error al leer el archivo: {str(e)}")
+            dataset_actual = Dataset.objects.get(id=id_seleccionado)
+            nombre_dataset = dataset_actual.nombre_archivo
+            ruta_csv = dataset_actual.archivo.path
 
-    contexto = {
-        'columnas': columnas,
-        'partidos': partidos,
-        'nombre_dataset': nombre_dataset_actual,
+            if os.path.exists(ruta_csv):
+                df = pd.read_csv(ruta_csv)
+                columnas = df.columns.tolist()
+                partidos = df.head(10).values.tolist()
+        except Dataset.DoesNotExist:
+            pass
+
+    context = {
         'datasets_usuario': datasets_usuario,
         'datasets_predeterminados': datasets_predeterminados,
-        'id_seleccionado': id_dataset_seleccionado,
+        'id_seleccionado': id_seleccionado,
         'dataset_actual': dataset_actual,
+        'columnas': columnas,
+        'partidos': partidos,
+        'nombre_dataset': nombre_dataset,
     }
 
-    return render(request, 'web/datasets.html', contexto)
+    return render(request, 'web/datasets.html', context)
 
 
+from django.core.paginator import Paginator
+
+
+@login_required(login_url='login')
 def historial(request):
-    return render(request, 'web/historial.html')
+    usuario = request.user
+
+    # Obtener todas las rondas guardadas por este usuario, de la más reciente a la más antigua
+    parlays_list = Parlay.objects.filter(usuario=usuario).order_index_by('-fecha_creacion') if hasattr(Parlay.objects,
+                                                                                                       'order_index_by') else Parlay.objects.filter(
+        usuario=usuario).order_by('-fecha_creacion')
+
+    # Paginación: 10 grupos (instancias de Parlay) por página
+    paginator = Paginator(parlays_list, 10)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    return render(request, 'web/historial.html', {'page_obj': page_obj})
 
 
 def registro_vista(request):

@@ -1,10 +1,278 @@
 {% extends 'web/base.html' %}
-
 {% block contenido %}
 
-<div>
-    <h1 class="tomorrow-medium">Consulta la clasificación de un nuevo partido</h1>
-    <p>Elige el dataset, selecciona los equipos contrincantes, obtén la clasificación y decide si guardar la información</p>
+<style>
+    .parlay-container {
+        max-width: 900px;
+        margin: 30px auto;
+        font-family: 'Segoe UI', sans-serif;
+    }
+    .dataset-selector-box {
+        background: #f8fafc;
+        padding: 20px;
+        border-radius: 12px;
+        border: 1px solid #e2e8f0;
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        margin-bottom: 25px;
+    }
+    .form-control-inline {
+        padding: 10px 15px;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        font-size: 14px;
+        background-color: white;
+        outline: none;
+        min-width: 250px;
+    }
+    .partido-card {
+        background: white;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 25px;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+        position: relative;
+    }
+    .partido-grid {
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+        align-items: center;
+        gap: 20px;
+    }
+    .vs-badge {
+        background: #e2e8f0;
+        color: #475569;
+        font-weight: 700;
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-size: 12px;
+    }
+    .btn-golarin {
+        background-color: #0d1527;
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.2s;
+    }
+    .btn-golarin:hover { background-color: #1e293b; }
+    .btn-secondary {
+        background-color: #64748b;
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+    }
+    .btn-remove {
+        position: absolute;
+        top: 15px;
+        right: 15px;
+        background: none;
+        border: none;
+        color: #ef4444;
+        cursor: pointer;
+        font-weight: 600;
+    }
+    .result-box {
+        background: #f0fdf4;
+        border: 1px solid #bbf7d0;
+        border-radius: 8px;
+        padding: 15px;
+        margin-top: 15px;
+    }
+    .winner-highlight {
+        font-weight: bold;
+        color: #166534;
+        background: #dcfce7;
+        padding: 2px 6px;
+        border-radius: 4px;
+    }
+</style>
+
+    <div style="margin-bottom: 25px;">
+        <h1 class="tomorrow-medium">Consulta la clasificación de un nuevo parlay</h1>
+        <p>Elige el dataset, selecciona los equipos contrincantes para tus partidos y obtén la clasificación instantánea.</p>
+    </div>
+
+<div class="parlay-container">
+
+    <div class="dataset-selector-box">
+        <label style="font-weight: 600; color: #334155;">Elige el Dataset:</label>
+        <select id="datasetSelector" class="form-control-inline" onchange="cargarConfiguracionDataset(this.value)">
+            <option value="" disabled selected>Selecciona un archivo...</option>
+            {% for ds in datasets_disponibles %}
+                <option value="{{ ds.id }}">{{ ds.nombre_archivo }} ({{ ds.get_tipo_display }})</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <form id="parlayForm" onsubmit="calcularClasificacion(event)">
+        {% csrf_token %}
+        <div id="partidosContainer">
+            <div class="partido-card" id="partido_1">
+                <h4 style="margin: 0 0 15px 0; color: #475569;">Partido #1</h4>
+                <div class="partido-grid">
+                    <div>
+                        <label style="display:block; font-size:12px; font-weight:600; margin-bottom:5px;">Local (Home)</label>
+                        <select class="form-control-inline select-home" style="width:100%;" required disabled>
+                            <option value="">Selecciona equipo...</option>
+                        </select>
+                    </div>
+                    <div class="vs-badge">VS</div>
+                    <div>
+                        <label style="display:block; font-size:12px; font-weight:600; margin-bottom:5px;">Visitante (Away)</label>
+                        <select class="form-control-inline select-away" style="width:100%;" required disabled>
+                            <option value="">Selecciona equipo...</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="resultado-placeholder"></div>
+            </div>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; margin-top: 30px; border-top: 1px solid #e2e8f0; padding-top: 20px;">
+            <button type="button" class="btn-secondary" onclick="agregarTarjetaPartido()"><i class="fa-solid fa-plus"></i> Añadir Partido</button>
+            <div style="display: flex; gap: 10px;">
+                <a href="{% url 'nuevoParlay' %}" class="btn-secondary" style="text-decoration: none; text-align: center;">Regresar</a>
+                <button type="submit" id="btnCalcular" class="btn-golarin" disabled>Calcular Clasificación</button>
+            </div>
+        </div>
+    </form>
 </div>
+
+<script>
+    let datasetValoresGlobales = null;
+    let contadorPartidos = 1;
+
+    function cargarConfiguracionDataset(datasetId) {
+        if (!datasetId) return;
+
+        fetch(`{% url 'nuevoParlay' %}?action=get_equipos&dataset_id=${datasetId}`)
+            .then(res => res.json())
+            .then(data => {
+                if(data.error) return alert(data.error);
+
+                datasetValoresGlobales = data;
+                document.getElementById('btnCalcular').disabled = false;
+
+                document.querySelectorAll('.partido-card').forEach(card => {
+                    poblaciónSelectores(card);
+                });
+            });
+    }
+
+    function poblaciónSelectores(cardElement) {
+        if (!datasetValoresGlobales) return;
+
+        // CORRECCIÓN: Aseguramos el orden estricto de las columnas discretas del dataset original
+        const colHome = datasetValoresGlobales.cols_discretas[0];
+        const colAway = datasetValoresGlobales.cols_discretas[1];
+
+        const opcionesHome = datasetValoresGlobales.valores[colHome] || [];
+        const opcionesAway = datasetValoresGlobales.valores[colAway] || [];
+
+        const sHome = cardElement.querySelector('.select-home');
+        const sAway = cardElement.querySelector('.select-away');
+
+        let valH = sHome.value;
+        let valA = sAway.value;
+
+        sHome.innerHTML = '<option value="">Selecciona equipo...</option>' + opcionesHome.map(v => `<option value="${v}">${v}</option>`).join('');
+        sAway.innerHTML = '<option value="">Selecciona equipo...</option>' + opcionesAway.map(v => `<option value="${v}">${v}</option>`).join('');
+
+        sHome.disabled = false;
+        sAway.disabled = false;
+
+        if(valH) sHome.value = valH;
+        if(valA) sAway.value = valA;
+    }
+
+    function agregarTarjetaPartido() {
+        contadorPartidos++;
+        const container = document.getElementById('partidosContainer');
+        const nuevaTarjeta = document.createElement('div');
+        nuevaTarjeta.className = 'partido-card';
+        nuevaTarjeta.id = `partido_${contadorPartidos}`;
+
+        nuevaTarjeta.innerHTML = `
+            <button type="button" class="btn-remove" onclick="document.getElementById('partido_${contadorPartidos}').remove()">Remover</button>
+            <h4 style="margin: 0 0 15px 0; color: #475569;">Partido #${contadorPartidos}</h4>
+            <div class="partido-grid">
+                <div>
+                    <label style="display:block; font-size:12px; font-weight:600; margin-bottom:5px;">Local (Home)</label>
+                    <select class="form-control-inline select-home" style="width:100%;" required disabled>
+                        <option value="">Selecciona equipo...</option>
+                    </select>
+                </div>
+                <div class="vs-badge">VS</div>
+                <div>
+                    <label style="display:block; font-size:12px; font-weight:600; margin-bottom:5px;">Visitante (Away)</label>
+                    <select class="form-control-inline select-away" style="width:100%;" required disabled>
+                        <option value="">Selecciona equipo...</option>
+                    </select>
+                </div>
+            </div>
+            <div class="resultado-placeholder"></div>
+        `;
+        container.appendChild(nuevaTarjeta);
+        poblaciónSelectores(nuevaTarjeta);
+    }
+
+    function calcularClasificacion(e) {
+        e.preventDefault();
+        const datasetId = document.getElementById('datasetSelector').value;
+        if(!datasetId) return alert("Por favor selecciona un dataset");
+
+        const partidosData = [];
+        document.querySelectorAll('.partido-card').forEach(card => {
+            partidosData.push({
+                home: card.querySelector('.select-home').value,
+                away: card.querySelector('.select-away').value
+            });
+        });
+
+        fetch(`{% url 'nuevoParlay' %}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({ dataset_id: datasetId, partidos: partidosData })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if(data.error) return alert(data.error);
+
+            // BLOQUEO DE INTERFAZ POST-CÁLCULO
+            // 1. Deshabilitar selectores principales y de tarjetas
+            document.getElementById('datasetSelector').disabled = true;
+            document.querySelectorAll('.select-home, .select-away').forEach(select => select.disabled = true);
+
+            // 2. Ocultar botones de añadir y remover para que no alteren la ronda
+            document.getElementById('btnCalcular').style.display = 'none';
+            document.querySelector("button[onclick='agregarTarjetaPartido()']").style.display = 'none';
+            document.querySelectorAll('.btn-remove').forEach(btn => btn.style.display = 'none');
+
+            // Renderizar las respuestas de clasificación
+            const tarjetas = document.querySelectorAll('.partido-card');
+            data.resultados.forEach((res, index) => {
+                let htmlRes = `<div class="result-box"><strong>Resultados Probabilísticos Naive Bayes:</strong><br><div style="margin-top:8px; display:flex; gap:15px;">`;
+                for (const [clase, prob] of Object.entries(res.probabilidades)) {
+                    const esGanador = (clase === res.ganador);
+                    htmlRes += `<span class="${esGanador ? 'winner-highlight' : ''}">${clase}: ${prob}% ${esGanador ? '🏆' : ''}</span>`;
+                }
+                htmlRes += `</div></div>`;
+                tarjetas[index].querySelector('.resultado-placeholder').innerHTML = htmlRes;
+            });
+        });
+    }
+</script>
 
 {% endblock %}

@@ -1,10 +1,186 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Title</title>
-</head>
-<body>
+{% extends 'web/base.html' %}
+{% block contenido %}
 
-</body>
-</html>
+<style>
+    .historial-container {
+        max-width: 950px;
+        margin: 30px auto;
+        font-family: 'Segoe UI', sans-serif;
+    }
+    .ronda-group-card {
+        background: white;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 25px;
+        margin-bottom: 30px;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.01);
+    }
+    .ronda-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 2px solid #f1f5f9;
+        padding-bottom: 12px;
+        margin-bottom: 20px;
+    }
+    .badge-tipo {
+        padding: 5px 14px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 700;
+        text-transform: uppercase;
+    }
+    .badge-parlay {
+        background-color: #dbeafe;
+        color: #1e40af;
+    }
+    .badge-partido {
+        background-color: #fef3c7;
+        color: #92400e;
+    }
+    .partido-item-box {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 15px;
+    }
+    .partido-grid {
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+        align-items: center;
+        gap: 15px;
+        text-align: center;
+        font-weight: 600;
+        color: #334155;
+    }
+    .vs-badge {
+        background: #cbd5e1;
+        color: #1e293b;
+        font-weight: 700;
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 11px;
+    }
+    .result-box {
+        background: #f0fdf4;
+        border: 1px solid #bbf7d0;
+        border-radius: 8px;
+        padding: 12px;
+        margin-top: 12px;
+        font-size: 14px;
+    }
+    .winner-highlight {
+        font-weight: bold;
+        color: #166534;
+        background: #dcfce7;
+        padding: 2px 6px;
+        border-radius: 4px;
+    }
+    /* Estilos de Paginación */
+    .pagination-box {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 10px;
+        margin-top: 30px;
+        padding: 15px 0;
+    }
+    .page-link-btn {
+        padding: 8px 16px;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        background: white;
+        color: #475569;
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 13px;
+        transition: all 0.2s;
+    }
+    .page-link-btn:hover {
+        background: #f1f5f9;
+        color: #0d1527;
+    }
+    .page-current {
+        font-size: 14px;
+        color: #64748b;
+        font-weight: 600;
+    }
+</style>
+
+<div style="margin-bottom: 25px;">
+    <h1 class="tomorrow-medium">Consulta tus Parlays y partidos</h1>
+    <p>Visualiza información histórica sobre tus clasificaciones calculadas con Naive Bayes organizadas por rondas.</p>
+</div>
+
+<div class="historial-container">
+    {% for parlay in page_obj %}
+    <div class="ronda-group-card">
+        <div class="ronda-header">
+            <div>
+                {% if parlay.partidos_data|length > 1 %}
+                    <span class="badge-tipo badge-parlay"><i class="fa-solid fa-layer-group"></i> Parlay</span>
+                {% else %}
+                    <span class="badge-tipo badge-partido"><i class="fa-solid fa-gamepad"></i> Partido</span>
+                {% endif %}
+                <span style="margin-left: 10px; font-size: 12px; color: #94a3b8; font-weight: 600;">ID Ronda: #{{ parlay.id }}</span>
+            </div>
+            <div style="font-size: 13px; color: #64748b; font-weight: 600;">
+                <i class="fa-regular fa-calendar-days"></i> {{ parlay.fecha_creacion|date:"d/m/Y H:i" }} hrs
+            </div>
+        </div>
+
+        <p style="font-size: 12px; color: #64748b; margin-top: -10px; margin-bottom: 15px;">
+            Dataset utilizado: <strong>{{ parlay.dataset.nombre_archivo }}</strong>
+        </p>
+
+        {% for partido in parlay.partidos_data %}
+        <div class="partido-item-box">
+            <div class="partido-grid">
+                <div style="text-align: right;">{{ partido.home }}</div>
+                <div><span class="vs-badge">VS</span></div>
+                <div style="text-align: left;">{{ partido.away }}</div>
+            </div>
+
+            <div class="result-box">
+                <strong>Resultados Probabilísticos Naive Bayes:</strong>
+                <br>
+                <div style="margin-top: 8px; display: flex; gap: 15px; flex-wrap: wrap;">
+                    {% for clase, prob in partido.probabilidades.items %}
+                        <span class="{% if clase == partido.ganador %}winner-highlight{% endif %}">
+                            {{ clase }}: {{ prob }}% {% if clase == partido.ganador %}🏆{% endif %}
+                        </span>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% empty %}
+    <div style="text-align: center; padding: 60px; color: #94a3b8; border: 2px dashed #e2e8f0; border-radius: 12px; background: white;">
+        <i class="fa-solid fa-folder-open" style="font-size: 40px; margin-bottom: 15px; color: #cbd5e1;"></i>
+        <p style="margin: 0; font-size: 16px; font-weight: 600;">Aún no has realizado ninguna clasificación de partidos.</p>
+    </div>
+    {% endfor %}
+
+    {% if page_obj.has_other_pages %}
+    <div class="pagination-box">
+        {% if page_obj.has_previous %}
+            <a href="?page=1" class="page-link-btn">&laquo; Primero</a>
+            <a href="?page={{ page_obj.previous_page_number }}" class="page-link-btn">Anterior</a>
+        {% endif %}
+
+        <span class="page-current">
+            Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
+        </span>
+
+        {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}" class="page-link-btn">Siguiente</a>
+            <a href="?page={{ page_obj.paginator.num_pages }}" class="page-link-btn">Último &raquo;</a>
+        {% endif %}
+    </div>
+    {% endif %}
+
+</div>
+
+{% endblock %}

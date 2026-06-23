@@ -129,7 +129,7 @@
 
             <div>
                 <label style="display: block; font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 5px;">Subir archivo CSV</label>
-                <input type="file" name="archivo_csv" accept=".csv" required style="font-size: 14px; color: #64748b;">
+                <input type="file" name="archivo" accept=".csv" required style="font-size: 14px; color: #64748b;">
                 <p style="font-size: 12px; color: #94a3b8; margin-top: 5px;">Formato aceptado: solo archivos .CSV</p>
             </div>
 
@@ -240,13 +240,40 @@
                 <select id="selectorDatasetPred" class="form-control" style="cursor: pointer;">
                     <option value="" disabled selected>Selecciona un archivo predeterminado...</option>
                     {% for ds in datasets_predeterminados %}
-                    <option value="{{ ds.id }}" {% if id_seleccionado == ds.id %}selected{% endif %}>
-                        {{ ds.nombre }} ({{ ds.algo }})
+                    <option value="{{ ds.id }}" {% if id_seleccionado == ds.id|stringformat:"s" %}selected{% endif %}>
+                        {{ ds.nombre_archivo }}
                     </option>
                     {% endfor %}
                 </select>
             </div>
         </div>
+
+        {% if id_seleccionado and request.GET.tipo == 'predeterminado' %}
+            {% if dataset_actual and dataset_actual.procesado %}
+            <div class="metrics-container" style="margin-bottom: 25px;">
+                <div class="metric-card" style="border-left: 4px solid #10b981;">
+                    <div class="metric-title">Accuracy</div>
+                    <div class="metric-value">{{ dataset_actual.accuracy|floatformat:4 }}</div>
+                </div>
+                <div class="metric-card" style="border-left: 4px solid #ef4444;">
+                    <div class="metric-title">Error</div>
+                    <div class="metric-value">{{ dataset_actual.error|floatformat:4 }}</div>
+                </div>
+                <div class="metric-card" style="border-left: 4px solid #3b82f6;">
+                    <div class="metric-title">Precision</div>
+                    <div class="metric-value">{{ dataset_actual.precision|floatformat:4 }}</div>
+                </div>
+                <div class="metric-card" style="border-left: 4px solid #f59e0b;">
+                    <div class="metric-title">Recall</div>
+                    <div class="metric-value">{{ dataset_actual.recall|floatformat:4 }}</div>
+                </div>
+                <div class="metric-card" style="border-left: 4px solid #6366f1;">
+                    <div class="metric-title">Especificidad</div>
+                    <div class="metric-value">{{ dataset_actual.especificidad|floatformat:4 }}</div>
+                </div>
+            </div>
+            {% endif %}
+        {% endif %}
 
         {% if partidos and request.GET.tipo == 'predeterminado' %}
         <div style="overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 8px;">
